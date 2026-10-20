@@ -1,0 +1,170 @@
+// Restaurant Order Management System
+// Save as RestaurantOrderSystem.java to compile and run:
+//   javac RestaurantOrderSystem.java
+//   java RestaurantOrderSystem
+
+import java.util.*;
+
+// ---------- Custom exception (Exception Handling) ----------
+class InvalidOrderException extends Exception {
+    public InvalidOrderException(String message) {
+        super(message);
+    }
+}
+
+// ---------- Class & Object + Encapsulation ----------
+class MenuItem {
+    private final int id;
+    private final String name;
+    private final double price;
+
+    public MenuItem(int id, String name, double price) {
+        this.id = id;
+        this.name = name;
+        this.price = price;
+    }
+
+    public int getId() { return id; }
+    public String getName() { return name; }
+    public double getPrice() { return price; }
+}
+
+class OrderLine {
+    private final MenuItem item;
+    private int quantity;
+
+    public OrderLine(MenuItem item, int quantity) {
+        this.item = item;
+        this.quantity = quantity;
+    }
+
+    public MenuItem getItem() { return item; }
+    public int getQuantity() { return quantity; }
+    public void addQuantity(int q) { this.quantity += q; }
+    public double getAmount() { return item.getPrice() * quantity; }
+}
+
+class Order {
+    // Collections: LinkedHashMap keeps insertion order
+    private final Map<Integer, OrderLine> lines = new LinkedHashMap<>();
+
+    public void addItem(MenuItem item, int quantity) throws InvalidOrderException {
+        if (quantity <= 0) {
+            throw new InvalidOrderException("Quantity must be greater than zero.");
+        }
+        OrderLine existing = lines.get(item.getId());
+        if (existing != null) {
+            existing.addQuantity(quantity);
+        } else {
+            lines.put(item.getId(), new OrderLine(item, quantity));
+        }
+    }
+
+    public boolean isEmpty() { return lines.isEmpty(); }
+
+    public Collection<OrderLine> getLines() { return lines.values(); }
+
+    public double getSubtotal() {
+        double total = 0;
+        for (OrderLine l : lines.values()) total += l.getAmount();
+        return total;
+    }
+
+    // Discount slabs: >= 1000 -> 10%, >= 500 -> 5%, else none
+    public double getDiscount() {
+        double sub = getSubtotal();
+        if (sub >= 1000) return sub * 0.10;
+        if (sub >= 500) return sub * 0.05;
+        return 0;
+    }
+
+    public double getFinalBill() { return getSubtotal() - getDiscount(); }
+}
+
+class Menu {
+    private final Map<Integer, MenuItem> items = new LinkedHashMap<>();
+
+    public Menu() {
+        add(new MenuItem(1, "Idli (2 pcs)", 40));
+        add(new MenuItem(2, "Masala Dosa", 70));
+        add(new MenuItem(3, "Veg Biryani", 150));
+        add(new MenuItem(4, "Paneer Butter Masala", 220));
+        add(new MenuItem(5, "Chapati (2 pcs)", 50));
+        add(new MenuItem(6, "Filter Coffee", 30));
+        add(new MenuItem(7, "Gulab Jamun", 60));
+    }
+
+    private void add(MenuItem m) { items.put(m.getId(), m); }
+
+    public MenuItem find(int id) throws InvalidOrderException {
+        MenuItem m = items.get(id);
+        if (m == null) throw new InvalidOrderException("Menu item " + id + " does not exist.");
+        return m;
+    }
+
+    public void display() {
+        System.out.println("\n========== MENU ==========");
+        System.out.printf("%-4s %-24s %8s%n", "ID", "Item", "Price");
+        System.out.println("----------------------------------------");
+        for (MenuItem m : items.values()) {
+            System.out.printf("%-4d %-24s %8.2f%n", m.getId(), m.getName(), m.getPrice());
+        }
+    }
+}
+
+class BillPrinter {
+    public static void print(Order order) {
+        System.out.println("\n================== BILL ==================");
+        System.out.printf("%-24s %5s %10s%n", "Item", "Qty", "Amount");
+        System.out.println("------------------------------------------");
+        for (OrderLine l : order.getLines()) {
+            System.out.printf("%-24s %5d %10.2f%n",
+                    l.getItem().getName(), l.getQuantity(), l.getAmount());
+        }
+        System.out.println("------------------------------------------");
+        System.out.printf("%-30s %10.2f%n", "Subtotal:", order.getSubtotal());
+        System.out.printf("%-30s %10.2f%n", "Discount:", order.getDiscount());
+        System.out.printf("%-30s %10.2f%n", "Total Bill:", order.getFinalBill());
+        System.out.println("==========================================");
+        System.out.println("Thank you! Visit again.");
+    }
+}
+
+public class RestaurantOrderSystem {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        Menu menu = new Menu();
+        Order order = new Order();
+
+        System.out.println("Welcome to the Restaurant Order Management System");
+        menu.display();
+
+        boolean ordering = true;
+        while (ordering) {
+            try {
+                System.out.print("\nEnter item ID (0 to finish): ");
+                int id = Integer.parseInt(sc.nextLine().trim());
+                if (id == 0) {
+                    ordering = false;
+                    continue;
+                }
+                MenuItem item = menu.find(id);
+                System.out.print("Enter quantity: ");
+                int qty = Integer.parseInt(sc.nextLine().trim());
+                order.addItem(item, qty);
+                System.out.println("Added: " + qty + " x " + item.getName());
+            } catch (NumberFormatException e) {
+                System.out.println("Error: please enter a valid number.");
+            } catch (InvalidOrderException e) {
+                System.out.println("Error: " + e.getMessage());
+            }
+        }
+
+        if (order.isEmpty()) {
+            System.out.println("No items ordered. Goodbye!");
+        } else {
+            BillPrinter.print(order);
+        }
+        sc.close();
+    }
+}
